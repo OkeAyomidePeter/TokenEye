@@ -1,0 +1,15 @@
+# Configuration for RPC providers and API keys
+rpc:
+  helius:
+    keys:
+      - name: "pipeline_10m"
+        key: "${HELIUS_API_KEY_1}"
+      - name: "pipeline_snapshots"
+        key: "${HELIUS_API_KEY_2}"
+      - name: "buffer"
+        key: "${HELIUS_API_KEY_3}"
+      - name: "buffer_2"
+        key: "${HELIUS_API_KEY_4}"
+
+  default_provider: "helius"
+  endpoint_template: "https://mainnet.helius-rpc.com/?api-key={api_key}"

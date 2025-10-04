@@ -1,0 +1,36 @@
+# ------------------------
+# Python
+# ------------------------
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+env/
+venv/
+Packages/         # your venv folder
+
+
+# ------------------------
+# Secrets & Config
+# ------------------------
+*.env              # never commit secrets
+# keep config.py (since it's part of source code)
+# if you want to commit only a template, use config_example.py
+
+# ------------------------
+# Databases / Caches
+# ------------------------
+*.db
+*.sqlite3
+
+# ------------------------
+# IDE & OS files
+# ------------------------
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db

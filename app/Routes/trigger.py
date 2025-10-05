@@ -13,7 +13,8 @@ from app.Enrichment import (
     HeliusRpcClient,
     RugCheckClient,
 )
-from app.Digestion.digest import TokenDigester
+from app.Digestion import TokenDigester
+from app.DataModels import TokenDigest
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -23,6 +24,8 @@ rpc_client = HeliusRpcClient(pipeline="pipeline_10m")
 batch_processor = BatchProcessor(rpc_client=rpc_client, batch_size=100, max_concurrent=10)
 token_enricher = TokenEnricher(batch_processor=batch_processor)
 rugcheck_client = RugCheckClient()
+
+# Initialize digestion layer
 digester = TokenDigester()
 
 
@@ -119,14 +122,48 @@ async def run_sniper():
         # Step 5: RugCheck enrichment
         rugcheck_enriched = await enrich_with_rugcheck(rpc_enriched)
 
-        # Step 6: Digest tokens
-        digested = digester.digest_batch(rugcheck_enriched)
-
+        # Step 6: Digest tokens through the digestion layer
+        digested_raw = digester.digest_batch(rugcheck_enriched)
+        
+        # Step 7: Validate and convert to Pydantic models
+        validated_tokens = []
+        for digest_data in digested_raw:
+            try:
+                validated_token = TokenDigest.from_digest_dict(digest_data)
+                validated_tokens.append(validated_token)
+            except Exception as e:
+                logger.error(f"Validation failed for token: {e}")
+                # Create a minimal valid token for failed validations
+                from app.DataModels import DigestData, MetaDigest, MarketDigest, HolderDigest, LiquidityDigest, SocialDigest, FlagDigest, DerivedDigest
+                
+                validated_token = TokenDigest(
+                    address=digest_data.get("address"),
+                    symbol=digest_data.get("symbol"),
+                    chain="solana",
+                    digest=DigestData(
+                        meta=MetaDigest(error=f"Validation failed: {str(e)}"),
+                        market=MarketDigest(error=f"Validation failed: {str(e)}"),
+                        holders=HolderDigest(error=f"Validation failed: {str(e)}"),
+                        liquidity=LiquidityDigest(error=f"Validation failed: {str(e)}"),
+                        socials=SocialDigest(error=f"Validation failed: {str(e)}"),
+                        flags=FlagDigest(error=f"Validation failed: {str(e)}"),
+                        derived=DerivedDigest(error=f"Validation failed: {str(e)}")
+                    ),
+                    raw=digest_data.get("raw")
+                )
+                validated_tokens.append(validated_token)
+        
         return {
             "status": "success",
-            "count": len(digested),
-            "tokens": digested[:10],  # preview top 10
-            "sample_token": digested[0] if digested else None,
+            "rpc-count": len(rpc_enriched),
+            "parsed-count": len(parsed),
+            "dex-count": len(enriched),
+            "raw-count": len(raw_tokens),
+            "rucheck-count": len(rugcheck_enriched),
+            "digested-count": len(digested_raw),
+            "validated-count": len(validated_tokens),
+            "tokens": [token.model_dump() for token in validated_tokens[:10]],  # preview top 10 validated tokens
+            "sample_token": validated_tokens[0].model_dump() if validated_tokens else None,
         }
 
     except Exception as e:
@@ -153,12 +190,23 @@ async def analyze_token(token_address: str):
         except Exception as e:
             rug_report = {"status": "error", "error": str(e)}
 
-        # Merge
+        # Combine enriched data from all sources
         combined = {**market_data, "rpc_data": comp, "rugcheck": rug_report}
-        digested = digester.digest_token(combined)
-
-        return {"status": "success", "token": digested}
+        
+        # Digest the combined data
+        digested_raw = digester.digest_token(combined)
+        
+        # Validate and convert to Pydantic model
+        try:
+            validated_token = TokenDigest.from_digest_dict(digested_raw)
+            return {"status": "success", "token": validated_token.model_dump()}
+        except Exception as e:
+            logger.error(f"Token validation failed: {e}")
+            # Return raw data if validation fails
+            return {"status": "success", "token": digested_raw, "validation_error": str(e)}
 
     except Exception as e:
         logger.error(f"Analyze error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Analyze error: {str(e)}")
+
+

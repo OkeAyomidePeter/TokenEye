@@ -202,7 +202,7 @@ async def run_sniper():
         notifications = []
         for t in scored_tokens:
             try:
-                notif = await send_token_notification(t, pro_threshold=75.0)
+                notif = await send_token_notification(t, pro_threshold=50.0)
                 notifications.append({"address": t.get("address"), **notif})
             except Exception as e:
                 logger.error(f"Notification failed for {t.get('address')}: {e}")
@@ -292,5 +292,6 @@ async def analyze_token(token_address: str):
     except Exception as e:
         logger.error(f"Analyze error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Analyze error: {str(e)}")
+
 
 

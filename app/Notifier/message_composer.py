@@ -139,4 +139,3 @@ def format_free_message(token: Dict[str, Any]) -> str:
 
     return "\n".join(lines)
 
-

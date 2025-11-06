@@ -9,7 +9,7 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.exceptions import TelegramRetryAfter, TelegramAPIError
 
 from app.config import TELEGRAM_TOKEN, TELEGRAM_ALERT_CHANNEL, TELEGRAM_PRO_ALERT_CHANNEL
-from app.Notifier.message_composer import format_pro_message, format_free_message
+from app.Notifier.message_composer import format_pro_message, format_free_message, _links_buttons_from_token
 
 logger = logging.getLogger(__name__)
 
@@ -128,12 +128,13 @@ async def send_token_notification(token: Dict[str, Any], pro_threshold: float = 
 
     await _apply_rate_limits(channel_id)
     photo = _image_url(token)
+    kb, _ = _links_buttons_from_token(token)
 
     try:
         if photo:
-            result = await _safe_send(bot, bot.send_photo, chat_id=channel_id, photo=photo, caption=caption)
+            result = await _safe_send(bot, bot.send_photo, chat_id=channel_id, photo=photo, caption=caption, reply_markup=kb)
         else:
-            result = await _safe_send(bot, bot.send_message, chat_id=channel_id, text=caption)
+            result = await _safe_send(bot, bot.send_message, chat_id=channel_id, text=caption, reply_markup=kb)
 
         if result:
             _mark_sent(channel_id, str(token.get("address")))

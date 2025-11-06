@@ -41,7 +41,7 @@ class TokenDigest(BaseModel):
     digest: DigestData = Field(..., description="Complete digest data")
     
     # Raw data (optional, for debugging/retraining)
-    raw: Optional[Dict[str, Any]] = Field(None, description="Raw enriched token data")
+    # raw: Optional[Dict[str, Any]] = Field(None, description="Raw enriched token data")
     
     class Config:
         """Pydantic configuration."""
@@ -64,7 +64,7 @@ class TokenDigest(BaseModel):
             address = digest_dict.get("address")
             symbol = digest_dict.get("symbol")
             chain = digest_dict.get("chain", "solana")
-            raw = digest_dict.get("raw")
+            # raw = digest_dict.get("raw")
             
             # Extract digest sections
             digest_data = digest_dict.get("digest", {})
@@ -74,7 +74,7 @@ class TokenDigest(BaseModel):
                 symbol=symbol,
                 chain=chain,
                 digest=DigestData(**digest_data),
-                raw=raw
+                # raw=raw
             )
         except Exception as e:
             # If validation fails, create a minimal valid structure
@@ -91,5 +91,5 @@ class TokenDigest(BaseModel):
                     flags=FlagDigest(error=f"Validation failed: {str(e)}"),
                     derived=DerivedDigest(error=f"Validation failed: {str(e)}")
                 ),
-                raw=raw
+                # raw=raw
             )

@@ -22,6 +22,8 @@ class MarketDigest(BaseModel):
     price_change_24h: float = Field(0.0, description="24-hour price change percentage")
     
     # Transaction breakdown
+    buys_m5: float = Field(0.0, description="5 minutes buy transactions")
+    sells_m5: float = Field(0.0, description="5 minutes sell transactions")
     buys_1h: float = Field(0.0, description="1-hour buy transactions")
     sells_1h: float = Field(0.0, description="1-hour sell transactions")
     buys_6h: float = Field(0.0, description="6-hour buy transactions")

@@ -38,6 +38,7 @@ class MetaDigest(BaseModel):
     # Media & metadata
     image_url: Optional[str] = Field(None, description="Token image URL")
     metadata_uri: Optional[str] = Field(None, description="Token metadata URI")
+    dexscreener_url:Optional[str] = Field(None, description="Dexscreener url") 
     
     # Error handling
     error: Optional[str] = Field(None, description="Error message if processing failed")

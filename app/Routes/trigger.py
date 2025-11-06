@@ -15,6 +15,10 @@ from app.Enrichment import (
 )
 from app.Digestion import TokenDigester
 from app.DataModels import TokenDigest
+from app.DataModels import DigestData, MetaDigest, MarketDigest, HolderDigest, LiquidityDigest, SocialDigest, FlagDigest, DerivedDigest
+from app.Scoring import TokenScorer
+from app.Database import save_tokens_batch, save_token, SessionLocal
+from app.Notifier.telegram import send_token_notification
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -27,6 +31,9 @@ rugcheck_client = RugCheckClient()
 
 # Initialize digestion layer
 digester = TokenDigester()
+
+# Initialize scoring layer
+token_scorer = TokenScorer()
 
 
 # -------------------------
@@ -134,7 +141,7 @@ async def run_sniper():
             except Exception as e:
                 logger.error(f"Validation failed for token: {e}")
                 # Create a minimal valid token for failed validations
-                from app.DataModels import DigestData, MetaDigest, MarketDigest, HolderDigest, LiquidityDigest, SocialDigest, FlagDigest, DerivedDigest
+                
                 
                 validated_token = TokenDigest(
                     address=digest_data.get("address"),
@@ -153,17 +160,63 @@ async def run_sniper():
                 )
                 validated_tokens.append(validated_token)
         
+        # Step 8: Score tokens and append scores to validated tokens
+        scored_tokens = []
+        for validated_token in validated_tokens:
+            try:
+                # Convert TokenDigest to dict for scoring
+                token_dict = validated_token.model_dump()
+                
+                # Score the token
+                score_result = token_scorer.score_token(token_dict, include_breakdown=False)
+                
+                # Append score data to token dict
+                token_dict["score"] = {
+                    "final_score": score_result.get("final_score", 0.0),
+                    "classification": score_result.get("classification", "low potential"),
+                    "component_scores": score_result.get("component_scores", {}),
+                }
+                
+                scored_tokens.append(token_dict)
+            except Exception as e:
+                logger.error(f"Scoring failed for token {validated_token.address}: {e}")
+                # Append token with zero score if scoring fails
+                token_dict = validated_token.model_dump()
+                token_dict["score"] = {
+                    "final_score": 0.0,
+                    "classification": "low potential",
+                    "component_scores": {},
+                    "error": str(e)
+                }
+                scored_tokens.append(token_dict)
+        
+        # Step 9: Save tokens to database
+        db_result = None
+        try:
+            db_result = save_tokens_batch(scored_tokens)
+            logger.info(f"Database save result: {db_result['success_count']}/{db_result['total']} tokens saved")
+        except Exception as e:
+            logger.error(f"Database save error: {e}", exc_info=True)
+        
+        # Step 10: Notify Telegram channels per token based on score
+        notifications = []
+        for t in scored_tokens:
+            try:
+                notif = await send_token_notification(t, pro_threshold=75.0)
+                notifications.append({"address": t.get("address"), **notif})
+            except Exception as e:
+                logger.error(f"Notification failed for {t.get('address')}: {e}")
+                notifications.append({"address": t.get("address"), "sent": False, "error": str(e)})
+
         return {
             "status": "success",
-            "rpc-count": len(rpc_enriched),
-            "parsed-count": len(parsed),
-            "dex-count": len(enriched),
-            "raw-count": len(raw_tokens),
-            "rucheck-count": len(rugcheck_enriched),
-            "digested-count": len(digested_raw),
-            "validated-count": len(validated_tokens),
-            "tokens": [token.model_dump() for token in validated_tokens[:10]],  # preview top 10 validated tokens
-            "sample_token": validated_tokens[0].model_dump() if validated_tokens else None,
+            "tokens": scored_tokens,
+            "database": {
+                "saved": db_result.get("success_count", 0) if db_result else 0,
+                "failed": db_result.get("failure_count", 0) if db_result else 0,
+                "total": db_result.get("total", len(scored_tokens)) if db_result else len(scored_tokens)
+            } if db_result else None,
+            "notifications": notifications,
         }
 
     except Exception as e:
@@ -199,7 +252,38 @@ async def analyze_token(token_address: str):
         # Validate and convert to Pydantic model
         try:
             validated_token = TokenDigest.from_digest_dict(digested_raw)
-            return {"status": "success", "token": validated_token.model_dump()}
+            token_dict = validated_token.model_dump()
+            
+            # Score the token
+            try:
+                score_result = token_scorer.score_token(token_dict, include_breakdown=False)
+                token_dict["score"] = {
+                    "final_score": score_result.get("final_score", 0.0),
+                    "classification": score_result.get("classification", "low potential"),
+                    "component_scores": score_result.get("component_scores", {}),
+                }
+            except Exception as e:
+                logger.error(f"Scoring failed for token {token_address}: {e}")
+                token_dict["score"] = {
+                    "final_score": 0.0,
+                    "classification": "low potential",
+                    "component_scores": {},
+                    "error": str(e)
+                }
+            
+            # Save token to database
+            try:
+                db = SessionLocal()
+                save_token_result = save_token(db, token_dict)
+                if save_token_result:
+                    logger.info(f"Saved token {token_address} to database")
+                else:
+                    logger.warning(f"Failed to save token {token_address} to database")
+                db.close()
+            except Exception as e:
+                logger.error(f"Database save error for token {token_address}: {e}", exc_info=True)
+            
+            return {"status": "success", "token": token_dict}
         except Exception as e:
             logger.error(f"Token validation failed: {e}")
             # Return raw data if validation fails

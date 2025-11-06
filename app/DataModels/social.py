@@ -10,6 +10,9 @@ class SocialDigest(BaseModel):
     # Social media presence
     has_twitter: bool = Field(False, description="Whether token has Twitter/X presence")
     twitter_url: Optional[str] = Field(None, description="Twitter/X URL")
+    website: Optional[list] = Field(None, description="Website URL")
+    discord: Optional[str] = Field(None, description="Telegram URL")
+    telegram: Optional[str] = Field(None, description="Telegram URL")
     has_discord: bool = Field(False, description="Whether token has Discord presence")
     has_telegram: bool = Field(False, description="Whether token has Telegram presence")
     
@@ -19,7 +22,7 @@ class SocialDigest(BaseModel):
     
     # Community metrics
     social_presence_score: int = Field(0, description="Overall social presence score (0-5)")
-    verified_community: bool = Field(False, description="Whether community is verified")
+
     
     # Error handling
     error: Optional[str] = Field(None, description="Error message if processing failed")

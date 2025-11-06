@@ -1,4 +1,12 @@
 # app/config.py
+from dotenv import load_dotenv, find_dotenv
+import os
+
+# Load .env from the project root (robust to different working directories)
+load_dotenv(find_dotenv(), override=False)
+
+DATABASE_URL = "postgresql+psycopg2://postgres:Ay0_m1d3p3t3r@localhost:5432/tokenscout"
+
 
 PROXY_URL = "https://still-truth-bbe9.ayoo52294.workers.dev/"
 
@@ -14,3 +22,10 @@ USER_AGENTS = [
 DEX_TIMEOUT = 15
 
 RUGCHECK_BASE = "https://api.rugcheck.xyz/v1"
+
+
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+TELEGRAM_ALERT_CHANNEL = os.getenv("TELEGRAM_ALERT_CHANNEL")
+TELEGRAM_PRO_ALERT_CHANNEL = os.getenv("TELEGRAM_PRO_ALERT_CHANNEL")
+
+

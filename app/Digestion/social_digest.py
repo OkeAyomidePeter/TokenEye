@@ -28,6 +28,9 @@ class SocialDigest:
             twitter_url = None
             has_discord = False
             has_telegram = False
+            discord_url = None
+            telegram_url = None
+
 
             for social in socials:
                 if isinstance(social, dict):
@@ -46,10 +49,12 @@ class SocialDigest:
 
                 elif "discord" in platform or "discord" in url.lower():
                     has_discord = True
+                    discord_url = url.strip()
 
                 elif "telegram" in platform or "t.me" in url.lower():
                     has_telegram = True
-
+                    telegram_url = url.strip()
+             
             has_website = bool(websites)
             has_header_image = bool(info.get("logoURI"))
 
@@ -61,17 +66,20 @@ class SocialDigest:
                 has_telegram,
             ])
 
-            verified_community = False  # Placeholder for API-based verification
+
 
             return {
                 "has_twitter": has_twitter,
-                "twitter_url": twitter_url,  # <── now stores the full link
+                "twitter_url": twitter_url,
+                "website": websites,
+                "discord" : discord_url,
+                "telegram" : telegram_url,  
                 "has_website": has_website,
                 "has_header_image": has_header_image,
                 "has_discord": has_discord,
                 "has_telegram": has_telegram,
                 "social_presence_score": social_presence_score,
-                "verified_community": verified_community,
+
             }
 
         except Exception as e:
@@ -79,10 +87,12 @@ class SocialDigest:
                 "has_twitter": False,
                 "twitter_url": None,
                 "has_website": False,
+                "website":None,
+                "discord":None,
+                "telegram":None,
                 "has_header_image": False,
                 "has_discord": False,
                 "has_telegram": False,
                 "social_presence_score": 0,
-                "verified_community": False,
                 "_error": str(e),
             }

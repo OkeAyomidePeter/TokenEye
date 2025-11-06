@@ -22,6 +22,7 @@ class MetaDigest:
             name = base.get("name")
             symbol = base.get("symbol")
             chain = enriched_token.get("chain_id", "solana")
+            dexscreener_url = enriched_token.get("url", "We couldnt get the dexscreener url")
 
             # --- Authorities & creator ---
             creator = rugcheck.get("creator")
@@ -116,6 +117,7 @@ class MetaDigest:
                 },
                 "image_url": image_url,
                 "metadata_uri": metadata_uri,
+                "dexscreener_url": dexscreener_url,
             }
 
         except Exception as e:
@@ -134,5 +136,6 @@ class MetaDigest:
                 "launchpad": {"name": None, "url": None},
                 "image_url": None,
                 "metadata_uri": None,
+                "dexscreener_url": None,               
                 "_error": str(e),
             }

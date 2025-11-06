@@ -80,7 +80,7 @@ class TokenDigester:
                     "flags": flags,
                     "derived": derived,
                 },
-                "raw": enriched_token,  # keep for fallback or retraining
+                # "raw": enriched_token, 
             }
 
             # Validate structure integrity
@@ -102,7 +102,7 @@ class TokenDigester:
                     name: {"_error": str(e)}
                     for name in ["meta", "market", "holders", "liquidity", "socials", "flags", "derived"]
                 },
-                "raw": enriched_token,
+                # "raw": enriched_token,
             }
             return error_digest
 
@@ -143,7 +143,7 @@ class TokenDigester:
                         name: {"_error": f"Processing failed: {str(e)}"}
                         for name in ["meta", "market", "holders", "liquidity", "socials", "flags", "derived"]
                     },
-                    "raw": token,
+                    # "raw": token,
                 })
 
         logger.info(f"✅ Batch digestion done — {success_count}/{len(enriched_tokens)} succeeded")

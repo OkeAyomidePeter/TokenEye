@@ -19,6 +19,8 @@ from app.DataModels import DigestData, MetaDigest, MarketDigest, HolderDigest, L
 from app.Scoring import TokenScorer
 from app.Database import save_tokens_batch, save_token, SessionLocal
 from app.Notifier.telegram import send_token_notification
+from app.config import MAX_TOKEN_AGE_HOURS
+from datetime import datetime, timedelta, timezone
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -122,6 +124,35 @@ async def run_sniper():
 
         # Step 3: Parse Dexscreener
         parsed = parse_dexscreener_batch(enriched)
+
+        # Step 3.5: Filter by age
+        filtered_parsed = []
+        skipped_count = 0
+        now = datetime.now(timezone.utc)
+        
+        for token in parsed:
+            created_at = token.get("pair_created_at")
+            if not created_at:
+                # If no creation time, we can't determine age. 
+                # Decision: Keep it or drop it? Let's keep it to be safe, or drop if strict.
+                # For now, let's keep it but log warning if needed.
+                filtered_parsed.append(token)
+                continue
+            
+            # Ensure created_at is timezone-aware if now is
+            if created_at.tzinfo is None:
+                created_at = created_at.replace(tzinfo=timezone.utc)
+                
+            age = now - created_at
+            if age <= timedelta(hours=MAX_TOKEN_AGE_HOURS):
+                filtered_parsed.append(token)
+            else:
+                skipped_count += 1
+        
+        if skipped_count > 0:
+            logger.info(f"⏳ Filtered {skipped_count} tokens older than {MAX_TOKEN_AGE_HOURS} hours")
+            
+        parsed = filtered_parsed
 
         # Step 4: RPC enrichment
         rpc_enriched = await enrich_with_rpc_data(parsed)

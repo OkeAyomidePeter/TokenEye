@@ -1,4 +1,49 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Tuple
+
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+
+def _links_buttons_from_token(token: Dict[str, Any]) -> Tuple[Optional[InlineKeyboardMarkup], List[Dict[str, str]]]:
+    """
+    Build inline keyboard buttons from token links (DexScreener, website, Twitter).
+    Returns (InlineKeyboardMarkup or None, list of link dicts).
+    """
+    digest = token.get("digest", {})
+    meta = digest.get("meta", {})
+    socials = digest.get("socials", {})
+
+    dexscreener_url = meta.get("dexscreener_url") or token.get("dexscreener_url")
+
+    website = socials.get("website")
+    website_url = None
+    if isinstance(website, list) and website:
+        website_url = website[0]
+    elif isinstance(website, str):
+        website_url = website
+
+    twitter_url = socials.get("twitter_url")
+
+    buttons: List[List[InlineKeyboardButton]] = []
+    link_list: List[Dict[str, str]] = []
+
+    if dexscreener_url:
+        buttons.append([InlineKeyboardButton(text="📊 DexScreener", url=dexscreener_url)])
+        link_list.append({"label": "DexScreener", "url": dexscreener_url})
+
+    row: List[InlineKeyboardButton] = []
+    if website_url:
+        row.append(InlineKeyboardButton(text="🌐 Website", url=website_url))
+        link_list.append({"label": "Website", "url": website_url})
+    if twitter_url:
+        row.append(InlineKeyboardButton(text="🐦 Twitter", url=twitter_url))
+        link_list.append({"label": "Twitter", "url": twitter_url})
+    if row:
+        buttons.append(row)
+
+    if not buttons:
+        return None, link_list
+
+    return InlineKeyboardMarkup(inline_keyboard=buttons), link_list
 
 
 def _fmt_money(value: Optional[float]) -> str:

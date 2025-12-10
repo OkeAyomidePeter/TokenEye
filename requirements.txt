@@ -6,8 +6,12 @@ uvicorn==0.35.0          # ASGI server
 pydantic==2.11.7         # Pydantic models
 python-dotenv==1.1.1     # Load .env configs
 
-# --- Database / Supabase ---
-supabase==2.17.0         # Supabase client (includes gotrue, postgrest, etc.)
+# --- Database ---
+sqlalchemy==2.0.36       # ORM for PostgreSQL
+psycopg2-binary==2.9.10  # PostgreSQL driver
+
+# --- Config ---
+pyyaml>=6.0              # YAML config file parsing
 
 # --- Async & scheduling ---
 aiohttp==3.12.15         # Async HTTP requests (Dexscreener APIs)
@@ -23,3 +27,9 @@ httpx==0.28.1            # For Discord webhook calls (simpler than aiohttp here)
 
 # --- Logging ---
 colorama==0.4.6          # Pretty logs (optional, but good for console readability)
+
+# --- Data Export (for AI training) ---
+pandas>=2.0.0            # Data manipulation
+pyarrow>=14.0.0          # Parquet file format
+boto3>=1.34.0            # AWS S3 uploads (optional)
+

@@ -5,7 +5,10 @@ import os
 # Load .env from the project root (robust to different working directories)
 load_dotenv(find_dotenv(), override=False)
 
-DATABASE_URL = "postgresql+psycopg2://postgres:Ay0_m1d3p3t3r@localhost:5432/tokenscout"
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql+psycopg2://postgres:postgres@localhost:5432/tokenscout"
+)
 
 
 PROXY_URL = "https://still-truth-bbe9.ayoo52294.workers.dev/"

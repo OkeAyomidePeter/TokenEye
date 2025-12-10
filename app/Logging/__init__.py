@@ -27,7 +27,7 @@ def setup_logging() -> None:
         log_path, maxBytes=5 * 1024 * 1024, backupCount=3, encoding="utf-8"
     )
     file_handler.setFormatter(formatter)
-    file_handler.setLevel(logging.INFO)
+    file_handler.setLevel(logging.WARNING)
 
     # Also mirror to stderr via basic stream handler under uvicorn if desired
     # stream_handler = logging.StreamHandler()

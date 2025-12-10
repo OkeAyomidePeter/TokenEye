@@ -16,7 +16,7 @@ Packages/         # your venv folder
 # ------------------------
 # Secrets & Config
 # ------------------------
-*.env              # never commit secrets
+.env              # never commit secrets
 # keep config.py (since it's part of source code)
 # if you want to commit only a template, use config_example.py
 
@@ -34,3 +34,16 @@ Packages/         # your venv folder
 *.swp
 .DS_Store
 Thumbs.db
+
+# ------------------------
+# Docker
+# ------------------------
+.docker/
+
+# ------------------------
+# Exports & Logs
+# ------------------------
+exports/
+*.parquet
+
+

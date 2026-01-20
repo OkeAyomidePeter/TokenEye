@@ -33,10 +33,10 @@ TokenEye is an automated pipeline that discovers, enriches, scores, and alerts o
 │   └─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘  │
 │          │                                                         │         │
 │          │                                                         ▼         │
-│          │           ┌─────────────┐    ┌─────────────┐    ┌─────────────┐  │
-│          └──────────▶│  Database   │◀───│   Routes    │◀───│  Notifier   │  │
-│                      │ (PostgreSQL)│    │ (FastAPI)   │    │ (Telegram)  │  │
-│                      └─────────────┘    └─────────────┘    └─────────────┘  │
+│          │    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐        │
+│          └───▶│  Database   │◀───│   Routes    │◀───│  Notifier   │        │
+│               │ (PostgreSQL)│    │ (FastAPI)   │    │ (Telegram)  │        │
+│               └─────────────┘    └─────────────┘    └─────────────┘        │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -272,18 +272,19 @@ rpc:
       # ... more keys for different pipelines
 ```
 
----
+## 🚀 Deployment
 
-## 🚀 Running the Project
+For production deployment on a single EC2 instance, refer to [DEPLOYMENT.md](DEPLOYMENT.md).
+
+## 💻 Local Setup
 
 ```bash
-# 1. Create virtual environment
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-# venv\Scripts\activate   # Windows
+# 1. Setup virtual environment with uv
+uv venv
+source .venv/bin/activate
 
 # 2. Install dependencies
-pip install -r requirements.txt
+uv pip install -r requirements.txt
 
 # 3. Set up PostgreSQL database
 # Create database: tokenscout

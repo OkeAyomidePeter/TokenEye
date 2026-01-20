@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 """
 Database Export Script for TokenEye
-Exports tokens_discovered and token_history tables to Parquet format.
-Designed to run weekly via cron or manually.
+Exports ONLY "complete data sets" (tokens that have completed all scheduled checks)
+to Parquet format for AI training.
+
+Definition of Complete:
+A token must have entries in `token_history` for ALL 7 presets:
+['1h', '3h', '6h', '1d', '1w', '1m', '3m']
 
 Usage:
     python scripts/export_db.py                    # Export to local ./exports/
@@ -16,6 +20,7 @@ import argparse
 import logging
 from datetime import datetime
 from pathlib import Path
+from typing import List
 
 # Add project root to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -29,6 +34,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Expected check types for a "complete" dataset
+REQUIRED_CHECK_TYPES = {"1h", "3h", "6h", "1d", "1w", "1m", "3m"}
+
 
 def get_db_connection():
     """Create SQLAlchemy engine from DATABASE_URL."""
@@ -41,27 +49,92 @@ def get_db_connection():
     return create_engine(database_url)
 
 
-def export_table_to_parquet(engine, table_name: str, output_dir: Path) -> Path:
-    """Export a database table to Parquet format."""
+def get_complete_token_addresses(engine) -> List[str]:
+    """
+    Find token addresses that have history entries for ALL required check types.
+    """
     import pandas as pd
     
-    logger.info(f"Exporting table: {table_name}")
+    logger.info("Identifying tokens with complete datasets...")
     
-    # Read table into DataFrame
-    df = pd.read_sql_table(table_name, engine)
+    # Query to count distinct check_types per token. 
+    # We explicitly look for the 7 signatures. 
+    # Note: This assumes 1w, 1m, 3m are actually populated in history as '1w', '1m', '3m' strings.
+    query = """
+    SELECT token_address
+    FROM token_history
+    WHERE check_type IN ('1h', '3h', '6h', '1d', '1w', '1m', '3m')
+    GROUP BY token_address
+    HAVING COUNT(DISTINCT check_type) = 7
+    """
     
-    # Generate filename with date
-    date_str = datetime.now().strftime("%Y%m%d")
-    filename = f"{table_name}_{date_str}.parquet"
-    output_path = output_dir / filename
+    try:
+        df = pd.read_sql_query(query, engine)
+        addresses = df['token_address'].tolist()
+        logger.info(f"  → Found {len(addresses)} tokens with complete history (all 7 checks).")
+        return addresses
+    except Exception as e:
+        logger.error(f"Error checking for complete tokens: {e}")
+        return []
+
+
+def export_complete_datasets(engine, output_dir: Path) -> List[Path]:
+    """
+    Export tokens_discovered and token_history ONLY for complete tokens.
+    """
+    import pandas as pd
     
-    # Export to Parquet
-    df.to_parquet(output_path, index=False, compression="snappy")
+    complete_addresses = get_complete_token_addresses(engine)
     
-    file_size_mb = output_path.stat().st_size / (1024 * 1024)
-    logger.info(f"  → Exported {len(df)} rows to {output_path} ({file_size_mb:.2f} MB)")
+    if not complete_addresses:
+        logger.warning("No complete datasets found. Skipping export.")
+        return []
+        
+    exported_files = []
     
-    return output_path
+    # --- Export 1: tokens_discovered (filtered) ---
+    logger.info("Exporting table: tokens_discovered (filtered)")
+    # SQL IN clause requires single quotes around strings
+    formatted_addresses = ", ".join(f"'{addr}'" for addr in complete_addresses)
+    
+    query_tokens = f"""
+    SELECT * FROM tokens_discovered 
+    WHERE address IN ({formatted_addresses})
+    """
+    try:
+        df_tokens = pd.read_sql_query(query_tokens, engine)
+        
+        date_str = datetime.now().strftime("%Y%m%d")
+        filename_tokens = f"tokens_discovered_complete_{date_str}.parquet"
+        path_tokens = output_dir / filename_tokens
+        
+        df_tokens.to_parquet(path_tokens, index=False, compression="snappy")
+        file_size_mb = path_tokens.stat().st_size / (1024 * 1024)
+        logger.info(f"  → Exported {len(df_tokens)} rows to {path_tokens} ({file_size_mb:.2f} MB)")
+        exported_files.append(path_tokens)
+    except Exception as e:
+        logger.error(f"Failed to export filtered tokens_discovered: {e}")
+
+    # --- Export 2: token_history (filtered) ---
+    logger.info("Exporting table: token_history (filtered)")
+    query_history = f"""
+    SELECT * FROM token_history 
+    WHERE token_address IN ({formatted_addresses})
+    """
+    try:
+        df_history = pd.read_sql_query(query_history, engine)
+        
+        filename_history = f"token_history_complete_{date_str}.parquet"
+        path_history = output_dir / filename_history
+        
+        df_history.to_parquet(path_history, index=False, compression="snappy")
+        file_size_mb = path_history.stat().st_size / (1024 * 1024)
+        logger.info(f"  → Exported {len(df_history)} rows to {path_history} ({file_size_mb:.2f} MB)")
+        exported_files.append(path_history)
+    except Exception as e:
+        logger.error(f"Failed to export filtered token_history: {e}")
+        
+    return exported_files
 
 
 def upload_to_s3(file_path: Path, bucket_name: str, s3_prefix: str = "exports"):
@@ -73,6 +146,7 @@ def upload_to_s3(file_path: Path, bucket_name: str, s3_prefix: str = "exports"):
         s3_key = f"{s3_prefix}/{file_path.name}"
         
         logger.info(f"Uploading to s3://{bucket_name}/{s3_key}")
+        # Check if bucket exists/accessible omitted for brevity, boto3 will raise if error
         s3.upload_file(str(file_path), bucket_name, s3_key)
         logger.info(f"  → Upload complete")
         
@@ -85,7 +159,7 @@ def upload_to_s3(file_path: Path, bucket_name: str, s3_prefix: str = "exports"):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Export TokenEye database to Parquet")
+    parser = argparse.ArgumentParser(description="Export COMPLETE TokenEye datasets to Parquet")
     parser.add_argument(
         "--output", "-o",
         type=str,
@@ -103,12 +177,6 @@ def main():
         default=os.getenv("S3_BUCKET_NAME", "tokeneye-backups"),
         help="S3 bucket name for uploads"
     )
-    parser.add_argument(
-        "--tables",
-        nargs="+",
-        default=["tokens_discovered", "token_history"],
-        help="Tables to export (default: tokens_discovered, token_history)"
-    )
     
     args = parser.parse_args()
     
@@ -117,7 +185,7 @@ def main():
     output_dir.mkdir(parents=True, exist_ok=True)
     
     logger.info("=" * 50)
-    logger.info("TokenEye Database Export")
+    logger.info("TokenEye 'Complete Dataset' Export")
     logger.info(f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     logger.info(f"Output: {output_dir.absolute()}")
     logger.info("=" * 50)
@@ -132,16 +200,14 @@ def main():
         sys.exit(1)
     
     # Connect to database
-    engine = get_db_connection()
+    try:
+        engine = get_db_connection()
+    except Exception as e:
+        logger.error(f"Database connection failed: {e}")
+        sys.exit(1)
     
-    # Export each table
-    exported_files = []
-    for table_name in args.tables:
-        try:
-            output_path = export_table_to_parquet(engine, table_name, output_dir)
-            exported_files.append(output_path)
-        except Exception as e:
-            logger.error(f"Failed to export {table_name}: {e}")
+    # Export complete datasets
+    exported_files = export_complete_datasets(engine, output_dir)
     
     # Upload to S3 if requested
     if args.upload_s3 and exported_files:

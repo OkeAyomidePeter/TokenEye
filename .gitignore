@@ -38,11 +38,6 @@ Packages/         # your venv folder
 Thumbs.db
 
 # ------------------------
-# Docker
-# ------------------------
-.docker/
-
-# ------------------------
 # Exports & Logs
 # ------------------------
 exports/

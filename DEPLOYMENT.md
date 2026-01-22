@@ -116,14 +116,16 @@ Paste the following:
 
 ```ini
 [Unit]
-Description=TokenEye FastAPI Service
+Description=TokenEye Discovery System
 After=network.target postgresql.service
 
 [Service]
-User=ec2-user
-WorkingDirectory=/home/ec2-user/TokenEye
-ExecStart=/home/ec2-user/TokenEye/.venv/bin/python run.py
+User=ubuntu
+WorkingDirectory=/home/ubuntu/TokenEye
+ExecStart=/home/ubuntu/TokenEye/.venv/bin/python run.py
 Restart=always
+RestartSec=5
+EnvironmentFile=/home/ubuntu/TokenEye/.env
 
 [Install]
 WantedBy=multi-user.target
@@ -139,11 +141,50 @@ sudo systemctl enable tokeneye
 
 ---
 
-## 6. Verification
+## 7. Automation (The "Ticker")
 
-Visit `http://YOUR_INSTANCE_IP:8000/` in your browser. You should see `{"status":"ok"}`.
-Check logs using:
+Since TokenEye is a FastAPI server, it waits for someone to call its endpoints to start the work. To make it run automatically every few minutes, use a **Cron Job**.
+
+1. **Open Crontab**:
+
+   ```bash
+   crontab -e
+   ```
+
+2. **Add the following lines**:
+
+   ```bash
+   # Run the discovery pipeline every 5 minutes
+   */5 * * * * curl -s http://127.0.0.1:8000/sniper/start > /dev/null
+
+   # Run the re-check (Chrono) pipeline every 1 minute
+   */1 * * * * curl -s http://127.0.0.1:8000/chronosniper/start?limit=100 > /dev/null
+
+   # Daily export of complete (7-snapshot) data sets at midnight
+   0 0 * * * cd /home/ubuntu/TokenEye && PYTHONPATH=. ./.venv/bin/python scripts/complete_export.py >> /home/ubuntu/TokenEye/export.log 2>&1
+   ```
+
+3. **Save and Exit**.
+   Your bot is now fully autonomous: it discovers tokens, tracks them over time, and exports high-quality, complete datasets every night.
+
+---
+
+## 8. Troubleshooting & Logs
+
+**Check if the service is running**:
+
+```bash
+sudo systemctl status tokeneye
+```
+
+**View live application logs**:
 
 ```bash
 journalctl -u tokeneye -f
+```
+
+**Verify the database is populating**:
+
+```bash
+sudo -u postgres psql -d tokenscout -c "SELECT count(*) FROM tokens_discovered;"
 ```

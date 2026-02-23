@@ -30,10 +30,10 @@ def setup_logging() -> None:
     file_handler.setLevel(logging.WARNING)
 
     # Also mirror to stderr via basic stream handler under uvicorn if desired
-    # stream_handler = logging.StreamHandler()
-    # stream_handler.setFormatter(formatter)
-    # stream_handler.setLevel(logging.INFO)
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(formatter)
+    stream_handler.setLevel(logging.INFO)
 
     root.addHandler(file_handler)
-    # root.addHandler(stream_handler)
+    root.addHandler(stream_handler)
 

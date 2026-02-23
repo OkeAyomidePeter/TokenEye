@@ -10,23 +10,24 @@ from app.Logging import setup_logging
 import logging
 
 
+# Initialize logging immediately on module load
+setup_logging()
+logger = logging.getLogger(__name__)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Handles app startup and shutdown events in one place."""
-    # You can perform startup tasks here (e.g., init DB client, warm caches).
-    # Use logging instead of print in production; this is kept minimal for now.
-    loop = asyncio.get_event_loop()
-    # Initialize logging
-    setup_logging()
-    logger = logging.getLogger(__name__)
+    print(">>> LIFESPAN STARTING: Initializing components...")
     logger.info("Service starting up")
     
     # Initialize database tables
     try:
+        print(">>> INITIALIZING DATABASE...")
         init_db()
+        print(">>> DATABASE INITIALIZATION COMPLETED.")
         logger.info("Database initialized (or already present)")
     except Exception as e:
-        # Log error but don't crash the app - tables might already exist
+        print(f">>> DATABASE WARNING: {e}")
         logger.warning(f"Database initialization warning: {e}")
     
     # Simulate a small startup task

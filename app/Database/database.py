@@ -20,8 +20,11 @@ def init_db():
         from app.Database.models import TokenData, TokenHistory, TokenSchedule
         
         # Create all tables
+        print(">>> SQLALCHEMY: Running create_all...")
         Base.metadata.create_all(bind=engine)
+        print(">>> SQLALCHEMY: create_all SUCCESS.")
         logger.info("Database tables initialized successfully")
     except Exception as e:
+        print(f">>> SQLALCHEMY ERROR: {e}")
         logger.error(f"Error initializing database: {e}", exc_info=True)
         raise
